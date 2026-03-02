@@ -1,92 +1,247 @@
 <!DOCTYPE html>
-<html lang="az">
+<html lang="az" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>İTS Xidmətlər Siyahısı</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Tibbi Xidmətlər | İTS Portalı</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                }
+            }
+        }
+        
+        // Dark Mode İnitialization
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    </script>
     <style>
-        body { background-color: #f8f9fa; padding-top: 30px; }
-        .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .table thead { background-color: #007bff; color: white; }
-        .category-badge { background-color: #e9ecef; color: #495057; padding: 5px 10px; border-radius: 20px; font-size: 0.85em; }
-        #searchInput { border-radius: 25px; padding-left: 20px; margin-bottom: 20px; }
+        [v-cloak] { display: none; }
+        .glass { backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e4e4e7; border-radius: 10px; }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #27272a; }
     </style>
 </head>
-<body>
+<body class="bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 min-h-screen transition-colors duration-300">
 
-<div class="container">
-    <h2 class="mb-4 text-center text-primary">Tibbi Xidmətlər Siyahısı</h2>
-    
-    <input type="text" id="searchInput" class="form-control" placeholder="Xidmət adı və ya kod üzrə axtar...">
+    <nav class="fixed w-full z-50 bg-white/70 dark:bg-zinc-950/70 border-b border-zinc-100 dark:border-zinc-900 glass">
+        <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-indigo-600"></span>
+                <h1 class="text-lg font-bold tracking-tighter uppercase">TİBBİ <span class="text-indigo-600 dark:text-indigo-400 font-normal lowercase">xidmətlər</span></h1>
+            </div>
+            <div class="flex items-center gap-4">
+                <span id="resultCount" class="hidden md:block text-[10px] font-bold uppercase tracking-widest text-zinc-400">Yüklənir...</span>
+                <button onclick="toggleDarkMode()" class="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors">
+                    <span id="theme-icon">🌙</span>
+                </button>
+            </div>
+        </div>
+    </nav>
 
-    <div class="table-responsive">
-        <table class="table table-hover" id="servicesTable">
-            <thead>
-                <tr>
-                    <th>Kod (No)</th>
-                    <th>Xidmət Adı</th>
-                    <th>Kateqoriya</th>
-                    <th>Qiymət</th>
-                </tr>
-            </thead>
-            <tbody id="tableBody">
-                </tbody>
-        </table>
-    </div>
-    
-    <div id="loader" class="text-center">
-        <div class="spinner-border text-primary" role="status"></div>
-        <p>Məlumatlar yüklənir...</p>
-    </div>
-</div>
-
-<script>
-    // JSON faylını oxuyan funksiya
-    async function loadServices() {
-        try {
-            // Qeyd: Faylın adının 'xidmetler.json' olduğundan əmin olun
-            const response = await fetch('xidmetler.json');
-            const data = await response.json();
+    <main class="max-w-7xl mx-auto px-6 pt-32 pb-24">
+        
+        <div class="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
+            <div class="max-w-xl">
+                <h2 class="text-4xl font-extrabold tracking-tight mb-2">Xidmət Zərfi</h2>
+                <p class="text-zinc-500 dark:text-zinc-400 font-medium">İcbari Tibbi Sığorta zərfinə daxil olan xidmətlərin sürətli axtarış sistemi.</p>
+            </div>
             
-            const tableBody = document.getElementById('tableBody');
-            const loader = document.getElementById('loader');
-            
-            loader.style.display = 'none'; // Yükləmə ikonunu gizlət
+            <div class="w-full md:w-96 relative group">
+                <input type="text" id="searchInput" oninput="handleSearchInput()"
+                    class="w-full pl-12 pr-4 py-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-sm font-medium"
+                    placeholder="Xidmət adı, kod və ya XBT...">
+                <div class="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                </div>
+                <div id="searchSpinner" class="hidden absolute right-4 top-1/2 -translate-y-1/2">
+                    <div class="animate-spin h-4 w-4 border-2 border-indigo-600 border-t-transparent rounded-full"></div>
+                </div>
+            </div>
+        </div>
 
-            data.forEach(item => {
-                const row = document.createElement('tr');
-                
-                row.innerHTML = `
-                    <td><strong>${item.no}</strong></td>
-                    <td>${item.name}</td>
-                    <td><span class="category-badge">${item.category.name}</span></td>
-                    <td>${item.price ? item.price + ' AZN' : 'Pulsuz'}</td>
-                `;
-                
-                tableBody.appendChild(row);
-            });
-        } catch (error) {
-            console.error('Məlumat yüklənərkən xəta:', error);
-            document.getElementById('loader').innerHTML = `<p class="text-danger">Xəta: JSON faylı tapılmadı və ya oxunmadı.</p>`;
+        <div id="categoryFilters" class="flex items-center gap-2 mb-8 overflow-x-auto pb-4 custom-scrollbar">
+            <button id="btnAll" class="filter-btn active shrink-0 px-6 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 transition-all" data-catid="all">
+                Hamısı
+            </button>
+        </div>
+
+        <div class="bg-white dark:bg-zinc-900/30 border border-zinc-100 dark:border-zinc-800 rounded-[2rem] overflow-hidden shadow-sm">
+            <div class="overflow-x-auto custom-scrollbar">
+                <table class="w-full text-left border-collapse min-w-[800px]">
+                    <thead>
+                        <tr class="border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
+                            <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Kod</th>
+                            <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">XBT</th>
+                            <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 text-center">Kateqoriya</th>
+                            <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Xidmət Adı</th>
+                            <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 text-right">Qiymət</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-zinc-50 dark:divide-zinc-800/50 text-sm">
+                        </tbody>
+                </table>
+            </div>
+            
+            <div id="loader" class="py-32 text-center">
+                <div class="inline-block animate-spin h-8 w-8 border-4 border-indigo-600 border-t-transparent rounded-full mb-4"></div>
+                <p class="text-zinc-400 font-bold text-xs uppercase tracking-widest">Məlumatlar emal edilir...</p>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let rawServices = [];
+        let categoriesMap = {};
+        let activeCatId = "all";
+        let debounceTimer;
+
+        const icons = {
+            'bolt': `<path d="M13 10V3L4 14h7v7l9-11h-7z" />`,
+            'home': `<path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />`,
+            'beaker': `<path d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />`,
+            'scissors': `<path d="M7 11V7a5 5 0 0110 0v4" />`, // Simplified for brevity
+            'user-group': `<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 00-3-3.87" /><path d="M16 3.13a4 4 0 010 7.75" />`,
+            'variable': `<path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3" />`,
+            'radio': `<circle cx="12" cy="12" r="2" /><path d="M16.24 7.76a6 6 0 010 8.48m-8.48 0a6 6 0 010-8.48" />`,
+            'building-office': `<path d="M3 21h18M3 7V5a2 2 0 012-2h2m0 0V1h10v2m-10 0h10m0 0h2a2 2 0 012 2v2M9 21V11m6 10V11" />`
+        };
+
+        function getIconSVG(iconName, extraClass = "w-4 h-4") {
+            return `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="${extraClass}">${icons[iconName] || ''}</svg>`;
         }
-    }
 
-    // Axtarış funksiyası
-    document.getElementById('searchInput').addEventListener('keyup', function() {
-        const filter = this.value.toLowerCase();
-        const rows = document.querySelectorAll('#tableBody tr');
+        async function init() {
+            try {
+                const res = await fetch('xidmetler.json');
+                const data = await res.json();
+                categoriesMap = data.categories;
+                rawServices = data.services;
+                document.getElementById('loader').classList.add('hidden');
+                renderFilters();
+                renderTable();
+            } catch (e) {
+                document.getElementById('loader').innerHTML = `<p class="text-red-500 font-bold">Məlumat faylı yüklənmədi.</p>`;
+            }
+        }
 
-        rows.forEach(row => {
-            const text = row.innerText.toLowerCase();
-            row.style.display = text.includes(filter) ? '' : 'none';
-        });
-    });
+        function toggleDarkMode() {
+            const html = document.documentElement;
+            const icon = document.getElementById('theme-icon');
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                localStorage.theme = 'light';
+                icon.innerText = '🌙';
+            } else {
+                html.classList.add('dark');
+                localStorage.theme = 'dark';
+                icon.innerText = '☀️';
+            }
+        }
 
-    // Səhifə açılanda funksiyanı başlat
-    loadServices();
-</script>
+        function renderFilters() {
+            const container = document.getElementById('categoryFilters');
+            const btnAll = document.getElementById('btnAll');
+            
+            btnAll.onclick = function() {
+                resetButtons();
+                this.classList.add('active', 'bg-indigo-600', 'text-white', 'shadow-indigo-500/20');
+                activeCatId = "all";
+                renderTable();
+            };
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+            Object.keys(categoriesMap).forEach(id => {
+                const cat = categoriesMap[id];
+                const btn = document.createElement('button');
+                btn.className = "filter-btn shrink-0 px-5 py-2.5 rounded-full text-[10px] font-bold uppercase tracking-widest bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 text-zinc-500 hover:border-indigo-500 transition-all";
+                btn.innerHTML = `<span class="flex items-center gap-2">${getIconSVG(cat.icon, "w-3.5 h-3.5")} ${cat.name}</span>`;
+                btn.onclick = function() {
+                    resetButtons();
+                    this.classList.add('active', 'bg-indigo-600', 'text-white', 'shadow-indigo-500/20');
+                    activeCatId = id;
+                    renderTable();
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        function resetButtons() {
+            document.querySelectorAll('.filter-btn').forEach(b => {
+                b.classList.remove('active', 'bg-indigo-600', 'text-white', 'shadow-indigo-500/20');
+                b.classList.add('bg-zinc-50', 'dark:bg-zinc-900', 'text-zinc-500');
+            });
+        }
+
+        function handleSearchInput() {
+            const spinner = document.getElementById('searchSpinner');
+            spinner.classList.remove('hidden');
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                renderTable();
+                spinner.classList.add('hidden');
+            }, 300);
+        }
+
+        function renderTable() {
+            const query = document.getElementById('searchInput').value.toLowerCase().trim();
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            const filtered = rawServices.filter(s => {
+                const mCat = activeCatId === 'all' || s.cat_id.toString() === activeCatId;
+                const mSearch = (s.name && s.name.toLowerCase().includes(query)) || 
+                               (s.no && s.no.toString().includes(query)) ||
+                               (s.xbt && s.xbt.toLowerCase().includes(query));
+                return mCat && mSearch;
+            });
+
+            document.getElementById('resultCount').textContent = `${filtered.length} xidmət tapıldı`;
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="py-24 text-center text-zinc-400 italic font-medium">Nəticə tapılmadı.</td></tr>`;
+                return;
+            }
+
+            filtered.forEach(s => {
+                const cat = categoriesMap[s.cat_id] || {name: 'Digər', icon: 'variable'};
+                const tr = document.createElement('tr');
+                tr.className = "group hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20 transition-colors";
+                tr.innerHTML = `
+                    <td class="px-8 py-5 font-mono text-[10px] text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors">${s.no}</td>
+                    <td class="px-8 py-5">
+                        <span class="text-[9px] bg-zinc-100 dark:bg-zinc-800 text-zinc-500 px-2 py-1 rounded font-bold uppercase tracking-tighter group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                            ${s.xbt || '---'}
+                        </span>
+                    </td>
+                    <td class="px-8 py-5">
+                         <div class="flex items-center justify-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-1.5 rounded-full">
+                            ${getIconSVG(cat.icon, "w-3 h-3")} ${cat.name}
+                        </div>
+                    </td>
+                    <td class="px-8 py-5 font-semibold text-zinc-700 dark:text-zinc-300 leading-tight max-w-md">${s.name}</td>
+                    <td class="px-8 py-5 text-right font-black text-indigo-600 dark:text-indigo-400 text-base">${s.price ? s.price + ' ₼' : '-'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        window.onload = () => {
+            const icon = document.getElementById('theme-icon');
+            icon.innerText = document.documentElement.classList.contains('dark') ? '☀️' : '🌙';
+            init();
+        };
+    </script>
 </body>
 </html>
