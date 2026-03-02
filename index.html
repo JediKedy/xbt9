@@ -38,7 +38,7 @@
                 <h1 class="text-base font-bold tracking-tighter uppercase">TİBBİ <span class="text-indigo-600 dark:text-indigo-400 font-normal lowercase">xidmətlər</span></h1>
             </div>
             <button onclick="toggleDarkMode()" class="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors border border-zinc-200 dark:border-zinc-800">
-                <span id="theme-icon">🌙</span>
+                <span id="theme-icon"></span>
             </button>
         </div>
     </nav>
@@ -128,7 +128,9 @@
             'variable': `<path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3" />`,
             'radio': `<circle cx="12" cy="12" r="2" /><path d="M16.24 7.76a6 6 0 010 8.48m-8.48 0a6 6 0 010-8.48" />`,
             'building-office': `<path d="M3 21h18M3 7V5a2 2 0 012-2h2m0 0V1h10v2m-10 0h10" />`,
-            'scissors': `<path d="M6 19a3 3 0 102.17-5.17L10 12l-1.83-1.83A3 3 0 106 5m12 0a3 3 0 10-2.17 5.17L14 12l1.83 1.83A3 3 0 1018 19" />`
+            'scissors': `<path d="M6 19a3 3 0 102.17-5.17L10 12l-1.83-1.83A3 3 0 106 5m12 0a3 3 0 10-2.17 5.17L14 12l1.83 1.83A3 3 0 1018 19" />`,
+            'sun': `<path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />`,
+            'moon': `<path strokeLinecap="round" strokeLinejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" />`
         };
 
         function getIconSVG(iconName, extraClass = "w-4 h-4") {
@@ -151,15 +153,16 @@
 
         function toggleDarkMode() {
             const html = document.documentElement;
-            const icon = document.getElementById('theme-icon');
+            const iconContainer = document.getElementById('theme-icon');
+    
             if (html.classList.contains('dark')) {
                 html.classList.remove('dark');
                 localStorage.theme = 'light';
-                icon.innerText = '🌙';
+                iconContainer.innerHTML = getIconSVG('moon', 'w-5 h-5 text-zinc-600'); 
             } else {
                 html.classList.add('dark');
                 localStorage.theme = 'dark';
-                icon.innerText = '☀️';
+                iconContainer.innerHTML = getIconSVG('sun', 'w-5 h-5 text-yellow-400');
             }
         }
 
@@ -283,11 +286,17 @@
         }
 
         window.onload = () => {
-            if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-                document.documentElement.classList.add('dark');
-                document.getElementById('theme-icon').innerText = '☀️';
-            }
-            init();
+            const iconContainer = document.getElementById('theme-icon');
+            const isDark = localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    
+        if (isDark) {
+            document.documentElement.classList.add('dark');
+            iconContainer.innerHTML = getIconSVG('sun', 'w-5 h-5 text-yellow-400');
+        } else {
+            document.documentElement.classList.remove('dark');
+            iconContainer.innerHTML = getIconSVG('moon', 'w-5 h-5 text-zinc-600');
+        }
+        init();
         };
     </script>
 </body>
