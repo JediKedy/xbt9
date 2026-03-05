@@ -9,95 +9,151 @@
     <script>
         tailwind.config = {
             darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Inter', 'sans-serif'] },
-                }
+            theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] } } }
+        };
+        // Prevent flash of wrong theme
+        try {
+            if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
             }
-        }
-        // Dark Mode Initial Load (Flash-ın qarşısını almaq üçün)
-        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-            document.documentElement.classList.add('dark');
-        }
+        } catch (_) {}
     </script>
     <style>
-        /* Lag-sız keçid üçün spesifik transition */
-        .theme-transition {
-            transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-        }
-        
+        .theme-transition { transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease; }
         .glass { backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+
         .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #e4e4e7; border-radius: 10px; }
         .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #27272a; }
-        
-        .modal-active { opacity: 1 !important; transform: scale(1) !important; transition: all 0.2s ease-out; }
-        #detailModal { transition: opacity 0.2s ease; }
+
+        /* Modal transitions — driven by data-state instead of JS class toggling */
+        #detailModal {
+            transition: opacity 0.2s ease;
+            pointer-events: none;
+        }
+        #detailModal.modal-open {
+            pointer-events: auto;
+        }
+        #modalContent {
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            opacity: 0;
+            transform: scale(0.95);
+        }
+        #detailModal.modal-open #modalContent {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        /* Card focus style for keyboard nav */
+        .service-card:focus-visible {
+            outline: 2px solid #6366f1;
+            outline-offset: 2px;
+        }
+
+        /* Filter button active state */
+        .filter-btn.active {
+            background-color: #4f46e5 !important;
+            color: white !important;
+            box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
+        }
+        .dark .filter-btn.active {
+            background-color: #4f46e5 !important;
+        }
     </style>
 </head>
 <body class="bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 min-h-screen theme-transition">
 
+    <!-- Navbar -->
     <nav class="fixed w-full top-0 z-50 bg-white/80 dark:bg-zinc-950/80 border-b border-zinc-200 dark:border-zinc-800 glass">
         <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
             <div class="flex items-center gap-2">
-                <span class="w-3 h-3 rounded-full bg-indigo-600 animate-pulse"></span>
-                <h1 class="text-sm md:text-base font-bold tracking-tighter uppercase">TİBBİ <span class="text-indigo-600 dark:text-indigo-400 font-normal lowercase">xidmətlər</span></h1>
+                <span class="w-3 h-3 rounded-full bg-indigo-600 animate-pulse" aria-hidden="true"></span>
+                <h1 class="text-sm md:text-base font-bold tracking-tighter uppercase">
+                    TİBBİ <span class="text-indigo-600 dark:text-indigo-400 font-normal lowercase">xidmətlər</span>
+                </h1>
             </div>
-            <button onclick="toggleDarkMode()" class="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors border border-zinc-200 dark:border-zinc-800">
-                <span id="theme-icon"></span>
+            <button
+                id="themeToggleBtn"
+                aria-label="Temanı dəyiş"
+                class="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors border border-zinc-200 dark:border-zinc-800">
+                <!-- Icon injected by JS -->
             </button>
         </div>
     </nav>
 
     <main class="max-w-7xl mx-auto px-4 pt-24 pb-24">
-        
+
+        <!-- Header + Search -->
         <div class="mb-8">
             <h2 class="text-3xl font-extrabold tracking-tight mb-2">Xidmət Zərfi</h2>
-            <p id="resultCount" class="text-zinc-500 dark:text-zinc-400 text-sm font-medium mb-6 italic">Yüklənir...</p>
-            
-            <div class="relative group">
-                <input type="text" id="searchInput" oninput="handleSearchInput()"
-                    class="w-full pl-12 pr-4 py-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-sm shadow-sm"
+            <p id="resultCount" class="text-zinc-500 dark:text-zinc-400 text-sm font-medium mb-6 italic" aria-live="polite">Yüklənir...</p>
+
+            <div class="relative">
+                <label for="searchInput" class="sr-only">Xidmət axtar</label>
+                <input
+                    type="search"
+                    id="searchInput"
+                    autocomplete="off"
+                    class="w-full pl-12 pr-10 py-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-sm shadow-sm"
                     placeholder="Xidmət adı, kod və ya XBT...">
-                <div class="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                <div class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
                 </div>
-                <div id="searchSpinner" class="hidden absolute right-4 top-1/2 -translate-y-1/2">
+                <div id="searchSpinner" class="hidden absolute right-4 top-1/2 -translate-y-1/2" aria-hidden="true">
                     <div class="animate-spin h-4 w-4 border-2 border-indigo-600 border-t-transparent rounded-full"></div>
                 </div>
             </div>
         </div>
 
-        <div id="categoryFilters" class="flex items-center gap-2 mb-8 overflow-x-auto pb-4 custom-scrollbar whitespace-nowrap -mx-4 px-4">
-            <button id="btnAll" class="filter-btn active shrink-0 px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 transition-all" data-catid="all">
+        <!-- Category Filters -->
+        <div id="categoryFilters" role="group" aria-label="Kateqoriya filtrlər"
+            class="flex items-center gap-2 mb-8 overflow-x-auto pb-4 custom-scrollbar whitespace-nowrap -mx-4 px-4">
+            <button
+                id="btnAll"
+                class="filter-btn active shrink-0 px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all"
+                data-catid="all">
                 Hamısı
             </button>
         </div>
 
-        <div id="servicesContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            </div>
+        <!-- Cards Grid -->
+        <div id="servicesContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" role="list"></div>
 
-        <div id="loader" class="py-32 text-center">
+        <!-- Initial Loader -->
+        <div id="loader" class="py-32 text-center" role="status" aria-label="Yüklənir">
             <div class="inline-block animate-spin h-8 w-8 border-4 border-indigo-600 border-t-transparent rounded-full mb-4"></div>
             <p class="text-zinc-400 font-bold text-xs uppercase tracking-widest">Məlumatlar emal edilir...</p>
         </div>
+
     </main>
 
-    <div id="detailModal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm opacity-0 transition-opacity duration-200">
-        <div class="bg-white dark:bg-zinc-900 w-full max-w-lg rounded-[2rem] shadow-2xl overflow-hidden transform scale-95 opacity-0 transition-all duration-200">
+    <!-- Detail Modal -->
+    <div
+        id="detailModal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modalTitle"
+        class="fixed inset-0 z-[100] hidden items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm opacity-0">
+
+        <div id="modalContent" class="bg-white dark:bg-zinc-900 w-full max-w-lg rounded-[2rem] shadow-2xl overflow-hidden">
             <div class="p-8">
                 <div class="flex justify-between items-start mb-6">
                     <div id="modalCategory" class="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1.5 rounded-full"></div>
-                    <button onclick="closeModal()" class="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l18 18"/></svg>
+                    <button
+                        id="modalCloseBtn"
+                        aria-label="Bağla"
+                        class="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
                     </button>
                 </div>
-                
+
                 <h3 id="modalTitle" class="text-xl md:text-2xl font-extrabold text-zinc-900 dark:text-zinc-100 leading-tight mb-8"></h3>
-                
+
                 <div class="grid grid-cols-2 gap-4 mb-8">
                     <div class="bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800">
                         <span class="text-[10px] uppercase text-zinc-400 block mb-1 font-bold">Xidmət Kodu</span>
@@ -114,7 +170,9 @@
                     <span id="modalPrice" class="text-3xl font-black text-indigo-600 dark:text-indigo-400"></span>
                 </div>
 
-                <button onclick="closeModal()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-indigo-600/20 active:scale-95">
+                <button
+                    id="modalCloseFooterBtn"
+                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-indigo-600/20 active:scale-95">
                     Bağla
                 </button>
             </div>
@@ -122,184 +180,254 @@
     </div>
 
     <script>
+    (() => {
+        'use strict';
+
+        // ── State ──────────────────────────────────────────────────────────────
         let rawServices = [];
         let categoriesMap = {};
-        let activeCatId = "all";
-        let debounceTimer;
+        let activeCatId = 'all';
+        let debounceTimer = null;
 
-        const icons = {
-            'bolt': `<path d="M13 10V3L4 14h7v7l9-11h-7z" />`,
-            'home': `<path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />`,
-            'beaker': `<path d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />`,
-            'user-group': `<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" />`,
-            'variable': `<path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3" />`,
-            'radio': `<circle cx="12" cy="12" r="2" /><path d="M16.24 7.76a6 6 0 010 8.48m-8.48 0a6 6 0 010-8.48" />`,
-            'building-office': `<path d="M3 21h18M3 7V5a2 2 0 012-2h2m0 0V1h10v2m-10 0h10" />`,
-            'scissors': `<path d="M6 19a3 3 0 102.17-5.17L10 12l-1.83-1.83A3 3 0 106 5m12 0a3 3 0 10-2.17 5.17L14 12l1.83 1.83A3 3 0 1018 19" />`,
-            'sun': `<path d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />`,
-            'moon': `<path d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" />`
+        // ── SVG Icons (stroke-based, consistent viewBox) ───────────────────────
+        const ICON_PATHS = {
+            bolt:           `<path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>`,
+            home:           `<path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>`,
+            beaker:         `<path stroke-linecap="round" stroke-linejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/>`,
+            'user-group':   `<path stroke-linecap="round" stroke-linejoin="round" d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>`,
+            variable:       `<path stroke-linecap="round" stroke-linejoin="round" d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/>`,
+            radio:          `<circle cx="12" cy="12" r="2"/><path stroke-linecap="round" stroke-linejoin="round" d="M16.24 7.76a6 6 0 010 8.48m-8.48 0a6 6 0 010-8.48"/>`,
+            'building-office': `<path stroke-linecap="round" stroke-linejoin="round" d="M3 21h18M3 7V5a2 2 0 012-2h2m0 0V1h10v2m-10 0h10"/>`,
+            scissors:       `<path stroke-linecap="round" stroke-linejoin="round" d="M6 19a3 3 0 102.17-5.17L10 12l-1.83-1.83A3 3 0 106 5m12 0a3 3 0 10-2.17 5.17L14 12l1.83 1.83A3 3 0 1018 19"/>`,
+            sun:            `<path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z"/>`,
+            moon:           `<path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z"/>`,
         };
 
-        function getIconSVG(iconName, extraClass = "w-4 h-4") {
-            return `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="${extraClass}">${icons[iconName] || ''}</svg>`;
+        function icon(name, cls = 'w-4 h-4') {
+            return `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="${cls}" aria-hidden="true">${ICON_PATHS[name] ?? ''}</svg>`;
         }
 
-        async function init() {
-            try {
-                const res = await fetch('xidmetler.json');
-                const data = await res.json();
-                categoriesMap = data.categories;
-                rawServices = data.services;
-                document.getElementById('loader').classList.add('hidden');
-                updateThemeIcon();
-                renderFilters();
-                renderTable();
-            } catch (e) {
-                document.getElementById('loader').innerHTML = `<p class="text-red-500 font-bold">Məlumat faylı yüklənmədi.</p>`;
-            }
+        // ── Sanitize text for safe DOM insertion ───────────────────────────────
+        function escapeText(str) {
+            if (str == null) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        // ── Theme ──────────────────────────────────────────────────────────────
+        function updateThemeIcon() {
+            const isDark = document.documentElement.classList.contains('dark');
+            document.getElementById('themeToggleBtn').innerHTML =
+                isDark ? icon('sun',  'w-5 h-5 text-yellow-400')
+                       : icon('moon', 'w-5 h-5 text-zinc-600');
         }
 
         function toggleDarkMode() {
             const isDark = document.documentElement.classList.toggle('dark');
-            localStorage.theme = isDark ? 'dark' : 'light';
+            try { localStorage.theme = isDark ? 'dark' : 'light'; } catch (_) {}
             updateThemeIcon();
         }
 
-        function updateThemeIcon() {
-            const iconContainer = document.getElementById('theme-icon');
-            const isDark = document.documentElement.classList.contains('dark');
-            iconContainer.innerHTML = isDark ? getIconSVG('sun', 'w-5 h-5 text-yellow-400') : getIconSVG('moon', 'w-5 h-5 text-zinc-600');
+        // ── Filter buttons ─────────────────────────────────────────────────────
+        function setActiveFilter(id) {
+            activeCatId = id;
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                const isActive = btn.dataset.catid === id;
+                btn.classList.toggle('active', isActive);
+                btn.setAttribute('aria-pressed', String(isActive));
+            });
+            renderCards();
         }
 
         function renderFilters() {
             const container = document.getElementById('categoryFilters');
             const btnAll = document.getElementById('btnAll');
-            
-            btnAll.onclick = function() {
-                resetButtons();
-                this.classList.add('active', 'bg-indigo-600', 'text-white', 'shadow-indigo-500/20');
-                activeCatId = "all";
-                renderTable();
-            };
+            btnAll.setAttribute('aria-pressed', 'true');
 
-            Object.keys(categoriesMap).forEach(id => {
-                const cat = categoriesMap[id];
+            Object.entries(categoriesMap).forEach(([id, cat]) => {
                 const btn = document.createElement('button');
-                btn.className = "filter-btn shrink-0 px-5 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:border-indigo-500 transition-all theme-transition";
-                btn.innerHTML = `<span class="flex items-center gap-2">${getIconSVG(cat.icon, "w-3.5 h-3.5")} ${cat.name}</span>`;
-                btn.onclick = function() {
-                    resetButtons();
-                    this.classList.add('active', 'bg-indigo-600', 'text-white', 'shadow-indigo-500/20');
-                    activeCatId = id;
-                    renderTable();
-                };
+                btn.className = 'filter-btn shrink-0 px-5 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:border-indigo-500 transition-all theme-transition';
+                btn.dataset.catid = id;
+                btn.setAttribute('aria-pressed', 'false');
+                btn.innerHTML = `<span class="flex items-center gap-2 pointer-events-none">${icon(cat.icon, 'w-3.5 h-3.5')} ${escapeText(cat.name)}</span>`;
                 container.appendChild(btn);
             });
-        }
 
-        function resetButtons() {
-            document.querySelectorAll('.filter-btn').forEach(b => {
-                b.classList.remove('active', 'bg-indigo-600', 'text-white', 'shadow-indigo-500/20');
-                b.classList.add('bg-white', 'dark:bg-zinc-900', 'text-zinc-500');
+            // Single delegated listener for all filter buttons
+            container.addEventListener('click', e => {
+                const btn = e.target.closest('.filter-btn');
+                if (btn) setActiveFilter(btn.dataset.catid);
             });
         }
 
+        // ── Search ─────────────────────────────────────────────────────────────
         function handleSearchInput() {
             const spinner = document.getElementById('searchSpinner');
             spinner.classList.remove('hidden');
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(() => {
-                renderTable();
+                renderCards();
                 spinner.classList.add('hidden');
             }, 300);
         }
 
-        function renderTable() {
-            const query = document.getElementById('searchInput').value.toLowerCase().trim();
-            const container = document.getElementById('servicesContainer');
-            container.innerHTML = '';
+        // ── Cards ──────────────────────────────────────────────────────────────
+        function buildCard(s, cat) {
+            const card = document.createElement('div');
+            card.className = 'service-card bg-white dark:bg-zinc-900 p-5 rounded-[1.5rem] border border-zinc-200 dark:border-zinc-800 cursor-pointer hover:shadow-xl hover:shadow-indigo-500/5 transition-all group active:scale-95 theme-transition';
+            card.setAttribute('role', 'listitem');
+            card.setAttribute('tabindex', '0');
+            card.setAttribute('aria-label', escapeText(s.name));
 
-            const filtered = rawServices.filter(s => {
-                const mCat = activeCatId === 'all' || s.cat_id.toString() === activeCatId;
-                const mSearch = (s.name && s.name.toLowerCase().includes(query)) || 
-                               (s.no && s.no.toString().includes(query)) ||
-                               (s.xbt && s.xbt.toLowerCase().includes(query));
-                return mCat && mSearch;
-            });
+            const priceDisplay = s.price ? `${escapeText(String(s.price))} ₼` : '—';
 
-            document.getElementById('resultCount').textContent = `${filtered.length} xidmət tapıldı`;
-
-            if (filtered.length === 0) {
-                container.innerHTML = `<div class="col-span-full py-24 text-center text-zinc-400 italic">Nəticə tapılmadı.</div>`;
-                return;
-            }
-
-            filtered.forEach(s => {
-                const cat = categoriesMap[s.cat_id] || {name: 'Digər', icon: 'variable'};
-                const card = document.createElement('div');
-                card.className = "bg-white dark:bg-zinc-900 p-5 rounded-[1.5rem] border border-zinc-200 dark:border-zinc-800 cursor-pointer hover:shadow-xl hover:shadow-indigo-500/5 transition-all group active:scale-95 theme-transition";
-                card.onclick = () => openModal(s, cat);
-                
-                card.innerHTML = `
-                    <div class="flex flex-col gap-4">
-                        <div class="flex justify-between items-start">
-                            <span class="text-[9px] font-black uppercase tracking-widest text-zinc-400 group-hover:text-indigo-600 transition-colors">Kod: ${s.no}</span>
-                            <span class="text-xs font-bold text-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 px-2 py-1 rounded-lg">${s.price ? s.price + ' ₼' : '-'}</span>
-                        </div>
-                        <h4 class="font-bold text-sm text-zinc-800 dark:text-zinc-200 leading-tight min-h-[40px]">${s.name}</h4>
-                        <div class="flex items-center gap-2 pt-2 border-t border-zinc-50 dark:border-zinc-800">
-                             <div class="text-indigo-500">${getIconSVG(cat.icon, "w-3 h-3")}</div>
-                             <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">${cat.name}</span>
-                             <span class="ml-auto text-[10px] font-mono text-zinc-400">${s.xbt || ''}</span>
-                        </div>
+            card.innerHTML = `
+                <div class="flex flex-col gap-4">
+                    <div class="flex justify-between items-start">
+                        <span class="text-[9px] font-black uppercase tracking-widest text-zinc-400 group-hover:text-indigo-600 transition-colors">Kod: ${escapeText(String(s.no))}</span>
+                        <span class="text-xs font-bold text-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 px-2 py-1 rounded-lg">${priceDisplay}</span>
                     </div>
-                `;
-                container.appendChild(card);
-            });
+                    <h4 class="font-bold text-sm text-zinc-800 dark:text-zinc-200 leading-tight min-h-[40px]">${escapeText(s.name)}</h4>
+                    <div class="flex items-center gap-2 pt-2 border-t border-zinc-50 dark:border-zinc-800">
+                        <div class="text-indigo-500">${icon(cat.icon, 'w-3 h-3')}</div>
+                        <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">${escapeText(cat.name)}</span>
+                        <span class="ml-auto text-[10px] font-mono text-zinc-400">${escapeText(s.xbt ?? '')}</span>
+                    </div>
+                </div>`;
+
+            const open = () => openModal(s, cat);
+            card.addEventListener('click', open);
+            card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+
+            return card;
         }
 
+        function renderCards() {
+            const query = document.getElementById('searchInput').value.toLowerCase().trim();
+            const container = document.getElementById('servicesContainer');
+            const resultCount = document.getElementById('resultCount');
+
+            const filtered = rawServices.filter(s => {
+                const matchCat = activeCatId === 'all' || String(s.cat_id) === activeCatId;
+                const matchSearch = !query
+                    || (s.name  && s.name.toLowerCase().includes(query))
+                    || (s.no    && String(s.no).includes(query))
+                    || (s.xbt   && s.xbt.toLowerCase().includes(query));
+                return matchCat && matchSearch;
+            });
+
+            resultCount.textContent = `${filtered.length} xidmət tapıldı`;
+
+            // Use a DocumentFragment for a single DOM write
+            const fragment = document.createDocumentFragment();
+
+            if (filtered.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'col-span-full py-24 text-center text-zinc-400 italic';
+                empty.textContent = 'Nəticə tapılmadı.';
+                fragment.appendChild(empty);
+            } else {
+                filtered.forEach(s => {
+                    const cat = categoriesMap[s.cat_id] ?? { name: 'Digər', icon: 'variable' };
+                    fragment.appendChild(buildCard(s, cat));
+                });
+            }
+
+            container.replaceChildren(fragment);
+        }
+
+        // ── Modal ──────────────────────────────────────────────────────────────
+        let lastFocusedElement = null;
+
         function openModal(service, category) {
+            lastFocusedElement = document.activeElement;
+
+            document.getElementById('modalTitle').textContent    = service.name ?? '';
+            document.getElementById('modalCode').textContent     = service.no   ?? '';
+            document.getElementById('modalXBT').textContent      = service.xbt  ?? 'Yoxdur';
+            document.getElementById('modalPrice').textContent    = service.price ? `${service.price} ₼` : 'Tarifsiz';
+            document.getElementById('modalCategory').innerHTML   =
+                `<span class="flex items-center gap-2">${icon(category.icon, 'w-4 h-4')} ${escapeText(category.name)}</span>`;
+
             const modal = document.getElementById('detailModal');
-            const modalContent = modal.querySelector('div');
-            
-            document.getElementById('modalTitle').textContent = service.name;
-            document.getElementById('modalCode').textContent = service.no;
-            document.getElementById('modalXBT').textContent = service.xbt || 'Yoxdur';
-            document.getElementById('modalPrice').textContent = service.price ? service.price + ' ₼' : 'Tarifsiz';
-            document.getElementById('modalCategory').innerHTML = `<span class="flex items-center gap-2">${getIconSVG(category.icon, "w-4 h-4")} ${category.name}</span>`;
-            
             modal.classList.remove('hidden');
             modal.classList.add('flex');
-            
-            // Animation trigger
-            setTimeout(() => {
-                modal.classList.add('opacity-100');
-                modalContent.classList.add('modal-active');
-            }, 10);
-            
             document.body.style.overflow = 'hidden';
+
+            // Trigger CSS transition via rAF (more reliable than setTimeout 10ms)
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    modal.classList.add('modal-open');
+                    modal.style.opacity = '1';
+                });
+            });
+
+            document.getElementById('modalCloseBtn').focus();
         }
 
         function closeModal() {
             const modal = document.getElementById('detailModal');
-            const modalContent = modal.querySelector('div');
-            
-            modal.classList.remove('opacity-100');
-            modalContent.classList.remove('modal-active');
-            
+            modal.classList.remove('modal-open');
+            modal.style.opacity = '0';
+
             setTimeout(() => {
                 modal.classList.add('hidden');
                 modal.classList.remove('flex');
-                document.body.style.overflow = 'auto';
+                document.body.style.overflow = '';
+                lastFocusedElement?.focus();
             }, 200);
         }
 
-        window.onclick = function(event) {
-            const modal = document.getElementById('detailModal');
-            if (event.target == modal) closeModal();
+        // ── Event listeners ────────────────────────────────────────────────────
+        function attachListeners() {
+            document.getElementById('themeToggleBtn').addEventListener('click', toggleDarkMode);
+            document.getElementById('searchInput').addEventListener('input', handleSearchInput);
+            document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
+            document.getElementById('modalCloseFooterBtn').addEventListener('click', closeModal);
+            document.getElementById('btnAll').addEventListener('click', () => setActiveFilter('all'));
+
+            // Close on backdrop click
+            document.getElementById('detailModal').addEventListener('click', e => {
+                if (e.target === e.currentTarget) closeModal();
+            });
+
+            // Close on Escape
+            document.addEventListener('keydown', e => {
+                if (e.key === 'Escape') {
+                    const modal = document.getElementById('detailModal');
+                    if (!modal.classList.contains('hidden')) closeModal();
+                }
+            });
+        }
+
+        // ── Init ───────────────────────────────────────────────────────────────
+        async function init() {
+            attachListeners();
+            updateThemeIcon();
+
+            try {
+                const res = await fetch('xidmetler.json');
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                categoriesMap = data.categories ?? {};
+                rawServices   = data.services   ?? [];
+            } catch (err) {
+                console.error('Data load failed:', err);
+                document.getElementById('loader').innerHTML =
+                    `<p class="text-red-500 font-bold">Məlumat faylı yüklənmədi.</p>`;
+                return;
+            }
+
+            document.getElementById('loader').classList.add('hidden');
+            renderFilters();
+            renderCards();
         }
 
         init();
+    })();
     </script>
 </body>
 </html>
