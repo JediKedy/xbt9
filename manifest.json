@@ -1,0 +1,21 @@
+{
+  "name": "XBT9",
+  "short_name": "XBT9",
+  "start_url": "./",
+  "display": "standalone",
+  "lang": "az",
+  "icons": [
+    {
+      "src": "app-icon.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "app-icon.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
